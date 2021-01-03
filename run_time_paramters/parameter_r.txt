@@ -1,0 +1,31 @@
+MASS         8.1000000e-23
+RED_SHIFT    0.0041
+FILE_R       Cube_x0.585-0.765_y0.652-0.833_z0.621-0.801_lv5_Binary_Real_000072_recon
+FILE_I       Cube_x0.585-0.765_y0.652-0.833_z0.621-0.801_lv5_Binary_Imag_000072_recon
+INIT_POT     pot_init.bin
+FINAL_POT    pot_final.bin
+R_RANGE      1.12
+BOX_RANGE    0.180127
+R_EIGEN      0.075226666667 
+NBOX         527
+RSIZ         30000
+LSIZ         300
+NSIZ         300
+LNOD	     16
+BETA         3.4
+ESCAPE_E     0.
+MU0         -2.5e10
+HALOMASS     0.625
+PERTURB      1.0
+OCTANT	     5
+
+OMEGA_M0     0.2835
+SMALL_H0     0.6955
+MASS_CORE_RATIO 1.7
+NFW_C        20.
+PHASE_BETWEEN_RI 0.43251
+CRITERIA     1.0e-10
+CONTRAST_FACTOR 347
+
+ITER_I       0
+ITER_MAX     10
