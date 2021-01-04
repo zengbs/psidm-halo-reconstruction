@@ -174,8 +174,8 @@ void Set_GS_rfunc(double GSrfunc[]) // modified 2020.12.16
 	for(int i=0;i<rsiz;i++)
 	{
 //	GSrfunc[i]=sqrt(4.*M_PI*1.9/pow(mass/1.e-23,2)/pow((r_c*1.e3/h),4)/pow((1.+9.1e-2*pow(r[i]/r_c,2)),8)
-	GSrfunc[i]=sqrt(1./pow(mass/1.e-23,2)/pow((r_c*1.e3/h0),4)/pow((1.+9.1e-2*pow(r[i]/r_c,2)),8));
-	core_mass+=GSrfunc[i]*GSrfunc[i]*r[i]*r[i]*dr;
+	    GSrfunc[i]=sqrt(1./pow(mass/1.e-23,2)/pow((r_c*1.e3/h0),4)/pow((1.+9.1e-2*pow(r[i]/r_c,2)),8));
+	    core_mass+=GSrfunc[i]*GSrfunc[i]*r[i]*r[i]*dr;
 	}
 	for(int i=0;i<rsiz;i++)
 		GSrfunc[i]=GSrfunc[i]/sqrt(core_mass);
@@ -340,7 +340,7 @@ int do_solve(bool readpot,char *potfile)
 		}
 		else{
 			for(j = 0;j < rsiz;j++)
-			    rfunc[l-l_init][i][j] = r_1[j] * ef_buf[i*rsiz + j] * vfac;  // later will multiply by dr, so (rfun*r)^2dr will cancel each other
+			    rfunc[l-l_init][i][j] = r_1[j] * ef_buf[i*rsiz + j] * vfac;  // guarantee that (rfun*r)^2dr = 1 
 		}
             }
 //            MPI_Bcast(rfunc[l][i], rsiz, MPI_DOUBLE, 0, MPI_COMM_WORLD);

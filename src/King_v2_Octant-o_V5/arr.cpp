@@ -2,6 +2,7 @@
 /* fix typo in cal_dis_O() 2020.12.30 */
 /* add timing in array_add_ylm() 2020.12.31 */
 /* add r_max debug in array_add_ylm() 2020.12.31 */
+/* add auto renaming output file in write_array() 2021.01.03 */
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -74,6 +75,11 @@ void write_array(char *filename_r, char *filename_i)
     MPI_File fh[2];
     MPI_Offset off;
     MPI_Status stat;
+
+# ifdef OCTANT_DECOMPOSE
+    sprintf(filename_r, "%s_octant%d", filename_r, octant);
+    sprintf(filename_i, "%s_octant%d", filename_i, octant);
+# endif
 
     float *(array_buf[2]);
     array_buf[0] = (float*) malloc(nx * ny * sizeof(float));
