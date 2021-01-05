@@ -1,11 +1,17 @@
 /* move extern int Lidx_global and extern int octant_global to here 2020.12.29*/
-
+/* add data dump and restart 2021.01.04 */
 extern int Lidx_global;
 extern int octant_global;
 
 int get_pos(int i, int j, int k);
-void read_array(char *filename_r, char *filename_i);
-void write_array(char *filename_r, char *filename_i);
+/* add data dump and restart 2021.01.04 */
+void read_array(bool restart, int restart_id, char *filename_r, char *filename_i);
+//void read_array(char *filename_r, char *filename_i);
+//
+/* add data dump and restart 2021.01.04 */
+void write_array(bool dump, int* dump_id, char *filename_r, char *filename_i);
+//void write_array(char *filename_r, char *filename_i);
+//
 void find_cen(void);
 void cal_dis(int i, int j, int k, double *x, double *y, double *z, double *r);
 void cal_dis_O(int i, int j, int k, double *x, double *y, double *z, double *r,int octant);

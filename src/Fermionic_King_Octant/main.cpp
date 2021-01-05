@@ -8,6 +8,9 @@
 /* determining xcen, ycen, zcen automatically (2020.12.29) */
 /* printf and fprintf OCTANT if OCTANT_DECOMPOSE is defined (2020.12.29)*/
 /* adding printf and fprintf potential at virial radius (2021.01.02) */
+/* adding data dumping and restarting (2021.01.04) */
+/* adding determing r_eigen automatically if R_EIGEN is not specified (2021.01.04)*/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -42,6 +45,12 @@ double planck_h  = 0.;
 double eta       = 0.;
 double red_shift = 0.;
 double scale_fac = 0.;
+// adding data dumping and restarting 2021.01.04
+int dump_flag = -1;
+int dump_interval = 0;
+int dump_id = 0;
+int restart_flag = -1;
+int restart_id = 0;
 // adding cosmology parameters 2020.12.10
 double Omega_m0  = 0.;
 double Omega_lambda0  = 0.;
@@ -356,6 +365,12 @@ void read_para(const char *parafile)
 // adding contrast factor for determing virial radius 2020.12.16
 	set_para("CONTRAST_FACTOR"  , (char *)(& CF  ), paraname, paravalue, 'd');
 //
+// adding data dumping and restarting 2021.01.04
+	set_para("DUMP_FLAG"  , (char *)(& dump_flag  ), paraname, paravalue, 'i');
+	set_para("DUMP_INTERVAL"  , (char *)(& dump_interval  ), paraname, paravalue, 'i');
+	set_para("RESTART_FLAG"  , (char *)(& restart_flag  ), paraname, paravalue, 'i');
+	set_para("RESTART_ID"  , (char *)(& restart_id  ), paraname, paravalue, 'i');
+//       
     }
     if(rank == 0)
         fclose(pf);
@@ -421,6 +436,11 @@ void read_para(const char *parafile)
 
 // automatically calculate A 2020.12.21
     A = pow(2.*pow(dr/h0*1e3*kpc_to_meter,3.)*rho_critical*Omega_m0/mass_of_sun/1e11,0.5);
+//
+// determine r_eigen by virial radius if R_EIGEN is not specified 2021.01.04 */
+    if (r_eigen==0.)
+        r_eigen = r_vir*1.01;
+//
 
     if (rank==0)
     {
@@ -449,6 +469,10 @@ void read_para(const char *parafile)
 # ifdef OCTANT_DECOMPOSE
         printf("OCTANT = %d\n", octant);
 # endif
+        printf("DUMP_FLAG = %d\n", dump_flag);
+        printf("DUMP_INTERVAL = %d\n", dump_interval);
+        printf("RESTART_FLAG = %d\n", restart_flag);
+        printf("RESTART_ID = %d\n", restart_id);
         printf("=================================================\n");
         printf("Calculated Parameters:\n");
         printf("ETA = %.8e\n", eta);
@@ -485,6 +509,10 @@ void read_para(const char *parafile)
 # ifdef OCTANT_DECOMPOSE
         fprintf(parameter_log, "OCTANT = %d\n", octant);
 # endif
+        fprintf(parameter_log, "DUMP_FLAG = %d\n", dump_flag);
+        fprintf(parameter_log, "DUMP_INTERVAL = %d\n", dump_interval);
+        fprintf(parameter_log, "RESTART_FLAG = %d\n", restart_flag);
+        fprintf(parameter_log, "RESTART_ID = %d\n", restart_id);
         fprintf(parameter_log, "=================================================\n");
         fprintf(parameter_log, "Calculated Parameters:\n");
         fprintf(parameter_log, "ETA = %.8e\n", eta);

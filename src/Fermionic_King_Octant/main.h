@@ -8,6 +8,7 @@
 // adding convergence check 2020.12.14
 // modifying lsize calculation 2020.12.25
 // adding output final potential profile 2020.12.27
+// adding data dumping and restarting 2021.01.04
 
 typedef double cmpx[2];
 typedef float cmpxf[2];
@@ -143,6 +144,13 @@ extern double NFW_rho_0;
 extern double r_vir;
 extern double r_e;
 extern double R_s;
+//
+// adding data dumping and restarting 2021.01.04
+extern int dump_flag;
+extern int dump_interval;
+extern int dump_id;
+extern int restart_flag;
+extern int restart_id;
 //
 
 //void fake_arr(int nx, int ny, int nz);

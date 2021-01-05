@@ -3,6 +3,7 @@
 /* add timing in array_add_ylm() 2020.12.31 */
 /* add r_max debug in array_add_ylm() 2020.12.31 */
 /* add auto renaming output file in write_array() 2021.01.03 */
+/* add data dump and restart 2021.01.04 */
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -19,7 +20,8 @@ int get_pos(int i, int j, int k)
     return pos;
 }
 
-void read_array(char *filename_r, char *filename_i)
+// add data dump and restart 2021.01.04
+void read_array(bool restart, int restart_id, char *filename_r, char *filename_i)
 {
     int i,j,k;
 
@@ -33,10 +35,56 @@ void read_array(char *filename_r, char *filename_i)
 
     array = (cmpxf*) malloc(nx*ny*(nz/size+1)*sizeof(cmpxf));
 
-    MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[0]));
-    MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[1]));
-    MPI_File_set_view((fh[0]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-    MPI_File_set_view((fh[1]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
+    if (restart)
+    {
+        int restart_id_check_r, nbox_check_r;
+        int restart_id_check_i, nbox_check_i;
+        if (rank==0)
+        {
+            FILE *f_temp[2];
+            f_temp[0] = fopen(filename_r, "rb");
+            f_temp[1] = fopen(filename_i, "rb");
+            fread(&restart_id_check_r, sizeof(int), 1, f_temp[0]);
+            fread(&nbox_check_r, sizeof(int), 1, f_temp[0]);
+            fread(&restart_id_check_i, sizeof(int), 1, f_temp[1]);
+            fread(&nbox_check_i, sizeof(int), 1, f_temp[1]);
+            fclose(f_temp[0]);
+            fclose(f_temp[1]);
+        }
+        MPI_Bcast(&restart_id_check_r, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&nbox_check_r, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&restart_id_check_i, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&nbox_check_i, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        restart_id_check_r ++;
+        restart_id_check_i ++;
+        if (restart_id_check_r!=restart_id||restart_id_check_i!=restart_id)
+        {
+            if (rank==0)
+                printf("RESTART_ID check failed while reading array (RESTART_ID=%d ; RESTART_ID_CHECK_R=%d ; RESTART_ID_CHECK_I=%d )! Exit!\n", restart_id, restart_id_check_r, restart_id_check_i);
+            exit(1);
+        }
+        if (nbox_check_r!=nbox||nbox_check_i!=nbox)
+        {
+            if (rank==0)
+                printf("NBOX check failed while reading array (NBOX=%d ; NBOX_CHECK_R=%d ; NBOX_CHECK_I=%d )! Exit!\n", nbox, nbox_check_r, nbox_check_i);
+            exit(1);
+        }
+
+        else
+        {
+            MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[0]));
+            MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[1]));
+            MPI_File_set_view((fh[0]), 2*sizeof(int), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);  // sizeof(int) is the displacement of the view
+            MPI_File_set_view((fh[1]), 2*sizeof(int), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);  // sizeof(int) is the displacement of the view
+        }
+    }
+    else
+    {
+        MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[0]));
+        MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDONLY, MPI_INFO_NULL, &(fh[1]));
+        MPI_File_set_view((fh[0]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
+        MPI_File_set_view((fh[1]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
+    }
 
     for(k = 0;k < nz;k++)
     {
@@ -67,8 +115,10 @@ void read_array(char *filename_r, char *filename_i)
 
     return;
 }
+//
 
-void write_array(char *filename_r, char *filename_i)
+// add data dump and restart 2021.01.04
+void write_array(bool dump, int *dump_id, char *filename_r, char *filename_i)
 {
     int i,j,k;
 
@@ -85,13 +135,32 @@ void write_array(char *filename_r, char *filename_i)
     array_buf[0] = (float*) malloc(nx * ny * sizeof(float));
     array_buf[1] = (float*) malloc(nx * ny * sizeof(float));
 
-    MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDWR|MPI_MODE_CREATE, MPI_INFO_NULL, &(fh[0]));
-    MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDWR|MPI_MODE_CREATE, MPI_INFO_NULL, &(fh[1]));
-    MPI_File_set_view((fh[0]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-    MPI_File_set_view((fh[1]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-
-
-
+    if (dump)
+    {
+        if (rank==0)
+        {
+            FILE *f_temp[2];
+            f_temp[0] = fopen(filename_r, "wb");
+            f_temp[1] = fopen(filename_i, "wb");
+            fwrite(dump_id, sizeof(int), 1, f_temp[0]);
+            fwrite(&nbox, sizeof(int), 1, f_temp[0]);
+            fwrite(dump_id, sizeof(int), 1, f_temp[1]);
+            fwrite(&nbox, sizeof(int), 1, f_temp[1]);
+            fclose(f_temp[0]);
+            fclose(f_temp[1]);
+        }
+        MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDWR|MPI_MODE_APPEND, MPI_INFO_NULL, &(fh[0]));
+        MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDWR|MPI_MODE_APPEND, MPI_INFO_NULL, &(fh[1]));
+        MPI_File_set_view((fh[0]), 2*sizeof(int), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);  // sizeof(int) is the displacement of the view
+        MPI_File_set_view((fh[1]), 2*sizeof(int), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);  // sizeof(int) is the displacement of the view
+    }
+    else
+    {
+        MPI_File_open(MPI_COMM_WORLD, filename_r, MPI_MODE_RDWR|MPI_MODE_CREATE, MPI_INFO_NULL, &(fh[0]));
+        MPI_File_open(MPI_COMM_WORLD, filename_i, MPI_MODE_RDWR|MPI_MODE_CREATE, MPI_INFO_NULL, &(fh[1]));
+        MPI_File_set_view((fh[0]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
+        MPI_File_set_view((fh[1]), 0, MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
+    }
 
     for(k = 0;k < nz;k++)
     {
@@ -127,6 +196,7 @@ void write_array(char *filename_r, char *filename_i)
 
     return;
 }
+//
 
 void write_sliceXY(char *filename_r, char *filename_i)
 {

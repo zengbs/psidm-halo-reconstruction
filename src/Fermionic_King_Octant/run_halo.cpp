@@ -2,6 +2,7 @@
 /* remove extern int Lidx_global 2020.12.29 */
 /* adding ignoring all operations in the for loop if l_max<l_init 2020.12.29 */
 /* adding timing for each and all Lidx loops 2020.12.31 */
+/* adding data dumping and restarting 2021.01.04 */
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -14,6 +15,8 @@
 #include"solve_eigenvalues.h"
 #include"ylm.h"
 #include"ubound.h"
+#define RESTART_FILENAME_R "RESTART_R"
+#define RESTART_FILENAME_I "RESTART_I"
 
 // remove Lidx_global 2020.12.29 */
 //extern int Lidx_global;
@@ -44,14 +47,104 @@ void run_halo(void)
     int l_max=0;
     int l_init=0;
     int glo_l_max=0;
+// adding data dumping and restart
+    int lsiz = 0;
+    int lidx_cut = 0;
+    if (restart_flag==1)
+    {
+        if (restart_id>Lsiz)
+        {
+	    if (rank==0)
+                printf("RESTART_ID > LSIZ ! Exit!\n");
+            return;
+        }
+        if (rank==0)
+            printf("Start with restart!\n");
+// restart_id < 0 (wrong input)
+        if (restart_id<0)
+           restart_id = 0;
+// restart_id >= 0 (meaning input) 
+        else
+        {
+            lsiz = Lsiz/lnod;
+// restart_id on large lsiz
+            if (restart_id<(lsiz+1)*l_rest)
+            {
+// restart_id does not match
+                if (restart_id%(lsiz+1)!=0)
+                {
+                    if (rank==0)
+                    {
+                        int guess = restart_id+(lsiz+1-restart_id%(lsiz+1));
+                        printf("RESTART_ID does not match lsiz (You might want to restart with ID=%d )! Exit!\n", guess);
+                    }
+                    return;
+                }
+// restart_id matches
+                lidx_cut = (int)(restart_id/(lsiz+1));
+                restart_id = lidx_cut*(lsiz+1);
+            }
+// restart_id on small lsiz
+            else
+            {
+// restart_id does not match
+                if ((restart_id-(lsiz+1)*l_rest)%lsiz!=0)
+                {
+                    if (rank==0)
+                    {
+                        int guess = restart_id+(lsiz-(restart_id-(lsiz+1)*l_rest)%lsiz);
+                        printf("RESTART_ID does not match lsiz (You might want to restart with ID=%d )! Exit!\n", guess);
+                    }
+                    return;
+                }
+// restart_id matches
+                lidx_cut = (int)((restart_id-(lsiz+1)*l_rest)/lsiz);
+                restart_id = lidx_cut*lsiz+(lsiz+1)*l_rest;
+                lidx_cut += l_rest;
+            }
+            if (rank==0)
+                printf("RESTART_ID = %d ; Lidx_cut = %d .\n", restart_id, lidx_cut);
+        } // end of restart_id>=0
+    } // end of restart_flag==1 
+    else
+    {
+        if (rank==0)
+            printf("Start without restart!\n");
+        restart_id = 0;
+    } // end of restart_flag!=1
+    int counter;
+    char dump_file_r[256], dump_file_i[256];
+    if (dump_flag==1)
+    {
+        counter = 1;
+	if (dump_interval==0)
+        {
+            if (rank==0)
+                printf("Dump interval not set! Exit!\n");
+            return;
+        }
+        else if (dump_interval>=lnod)
+        {
+            if (rank==0)
+                printf("Dump interval too lagre (must < LNOD)! Exit!\n");
+            return;
+        }
+        else
+        {
+            if (rank==0)
+                printf("Dump data with interval %d .\n", dump_interval);
+        }
+    }
+    else
+    {
+        if (rank==0)
+            printf("No data dump!\n");
+    }
+#ifdef TEST_FLAG
+    return;
+#endif
+//
 /*
-    //// solve eigenfunctions and eigenvalues in different nodes ////
-    l_max = do_solve(true,"pot_selfcon.bin");
-    l_init=rank%lnod*lsiz;
-    
-    rho_init(rho);
-    ylm_init(l_init,l_max);
-    
     //// save eigenfunctions in different nodes ////
     store_eigenstates(l_max, "egn");
     printf("eigenfunction stored! l_max=%d,l_init=%d rank=%d\n",l_max,l_init,rank);
@@ -77,9 +170,19 @@ void run_halo(void)
 #endif
 //    printf("r[0]=%e 1\n",r[0]);//debug
     /*** array initial ***/
+// add data dump and restart 2021.01.04
+if (restart_id==0)
     array_init();
+else 
+{
+    read_array(true, restart_id, RESTART_FILENAME_R, RESTART_FILENAME_I);
+    if (rank==0)
+        printf("Restart successed with RESTART_ID=%d !\n", restart_id);
+}
+
     	
-    for(int Lidx=0;Lidx<lnod;Lidx++)
+// add data dump and restart 2021.01.04
+    for(int Lidx=lidx_cut;Lidx<lnod;Lidx++)
     {
         Lidx_global = Lidx;           
 // add timing for each Lidx loop and eigen_copy 2020.12.31
@@ -128,6 +231,21 @@ void run_halo(void)
         {
             ylm_fin(l_init,l_max);
             free_egn(l_max,l_init);
+
+// add data dumping and restarting 2021.01.04
+            if (dump_flag==1)
+            {
+                dump_id = l_max;
+                if (counter%dump_interval==0)
+                {
+                    sprintf(dump_file_r,"%s_DUMP_ID=%d",file_r, l_max);
+                    sprintf(dump_file_i,"%s_DUMP_ID=%d",file_i, l_max);
+                    write_array(true, &dump_id, dump_file_r,dump_file_i);
+                    if (rank==0)
+                        printf("array files dumped with L=%d .\n", l_max);
+                }
+                counter ++;
+            }
         }
 // add timing for each Lidx loop 2020.12.31 
         if (rank==0)
@@ -154,9 +272,11 @@ void run_halo(void)
     gen_output(rho,true);
     show_output(-1,false);
     
+// add data dump and restart 2021.01.04
     /// write array into file_r and file_i///
-    write_array(file_r,file_i);
+    write_array(false,&dump_id,file_r,file_i);
     printf("array files finished\n");
+//
     
     //write_slices
 //    write_sliceXY("Real_sliceXY128","Imag_sliceXY128");
