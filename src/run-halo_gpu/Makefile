@@ -3,12 +3,13 @@ CC      := gcc
 CFLAGS  := -O3 -Wall -g
 CPP     := g++
 NVCC    := $(CUDIR)/bin/nvcc
-NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_75 -code=sm_75 -Xptxas -v -G -g # -G: device debug flag -g: host debug flag 
+#NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_75 -code=sm_75 -Xptxas -v 
+#NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_75 -code=sm_75 -Xptxas -v -G -g # -G: device debug flag -g: host debug flag 
 #NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_52 -code=sm_52 -Xptxas -v  # titanxq
-#NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_61 -code=sm_61 -Xptxas -v  # gtx1080ti
+NVFLAGS := -O3 -DOCTANT_DECOMPOSE -I$(CUDIR)/include -m64 -arch=compute_61 -code=sm_61 -Xptxas -v  # gtx1080ti
 LDFLAGS :=
-TEST_FLAG=-DTEST_FLAG
-DEBUG_FLAG=-DDEBUG
+#TEST_FLAG=-DTEST_FLAG
+#DEBUG_FLAG=-DDEBUG
 
 OBJ=arr.o ylm.o text_io.o main.o solve_eigenvalues.o extension.o run_halo.o
 

@@ -14,9 +14,11 @@
 #include"main.h"
 #include"arr.h"
 #include"ylm.h"
+#include"cuapi.h"
 #define RESTART_FILENAME_R "RESTART_R"
 #define RESTART_FILENAME_I "RESTART_I"
 
+char buff_r[128], buff_i[128];
 void run_single_lidx(void);
 
 void run(void)
@@ -27,7 +29,6 @@ void run(void)
 void run_single_lidx(void)
 {
     float time_temp;
-    char buff_r[128], buff_i[128];
     
 //    solve_init();
 //    if(rank==0)
@@ -40,6 +41,7 @@ void run_single_lidx(void)
     int l_max=0;
     int l_init=0;
     int counter=1;
+    bool cuda_error_flag;
     
 /// call r_max ///
 #ifdef OCTANT_DECOMPOSE
@@ -50,11 +52,8 @@ void run_single_lidx(void)
 #ifdef DEBUG
     printf("r_max found! r_max = %.4e .\n", r_max);
 #endif
-    if (dump_flag==1)
-    {
-        strcpy(buff_r, file_r);
-        strcpy(buff_i, file_i);
-    }
+    strcpy(buff_r, file_r);
+    strcpy(buff_i, file_i);
 
     array_init();
     if (restart_flag==1)
@@ -70,32 +69,32 @@ void run_single_lidx(void)
 #endif
 
     cudaEvent_t start, stop, eigen_copy_start, eigen_copy_stop, amplitude_copy_start, amplitude_copy_stop, lidx_start, lidx_stop;
-    cudaSetDevice(0);
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventCreate(&eigen_copy_start);
-    cudaEventCreate(&eigen_copy_stop);
-    cudaEventCreate(&amplitude_copy_start);
-    cudaEventCreate(&amplitude_copy_stop);
-    cudaEventCreate(&lidx_start);
-    cudaEventCreate(&lidx_stop);
-    cudaEventRecord(start,0);
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaSetDevice(0));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&start));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&eigen_copy_start));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&eigen_copy_stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&amplitude_copy_start));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&amplitude_copy_stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&lidx_start));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&lidx_stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(start,0));
     	
 // add data dump and restart 2021.01.04
     for(int lidx=restart_id;lidx<lnod;lidx++)
     {
         Lidx_global = lidx;
-        cudaEventRecord(lidx_start,0);
-        cudaEventRecord(eigen_copy_start,0);
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(lidx_start,0));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(eigen_copy_start,0));
         
         /*** load eigenstates and broadcast to every nodes***/
         load_eigenstates(&l_init,&l_max,"egn",Lidx_global);
 #ifdef DEBUG
         printf("Eigen states loading completed!\n");
 #endif
-        cudaEventRecord(eigen_copy_stop,0);
-        cudaEventSynchronize(eigen_copy_stop);
-        cudaEventElapsedTime(&time_temp, eigen_copy_start, eigen_copy_stop);
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(eigen_copy_stop,0));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(eigen_copy_stop));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&time_temp, eigen_copy_start, eigen_copy_stop));
         printf("Total time for copying eigen states from l_init=%d to l_max=%d is %.4e s.\n", l_init, l_max, time_temp/1000.);
 //  ignoring all operations if l_max<l_init 2020.12.29
         if (l_max<l_init)
@@ -113,21 +112,21 @@ void run_single_lidx(void)
         printf("Memory allocation for spherical harmonics completed.\n");
 #endif
 
-        cudaEventRecord(amplitude_copy_start,0);
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(amplitude_copy_start,0));
         /*** read amplitudes and Bcast ***/
         load_ylm(l_init,l_max,"amp_only",Lidx_global);
         /*** generate density in simulation box ***/
 #ifdef DEBUG
         printf("Amplitudes of spherical harmonics loading completed.\n");
 #endif
-        cudaEventRecord(amplitude_copy_stop,0);
-        cudaEventSynchronize(amplitude_copy_stop);
-        cudaEventElapsedTime(&time_temp, amplitude_copy_start, amplitude_copy_stop);
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(amplitude_copy_stop,0));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(amplitude_copy_stop));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&time_temp, amplitude_copy_start, amplitude_copy_stop));
         printf("Total time for copying  amplitudes from l_init=%d to l_max=%d is %.4e s.\n", l_init, l_max, time_temp/1000.);
 
         array_add_ylm(l_max,l_init,true);
 
-        cudaDeviceSynchronize();
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         ylm_fin(l_init,l_max);
         free_egn(l_max,l_init);
 
@@ -141,9 +140,9 @@ void run_single_lidx(void)
             strcpy(file_i, buff_i);
         }
 
-        cudaEventRecord(lidx_stop,0);
-        cudaEventSynchronize(lidx_stop);
-        cudaEventElapsedTime(&time_temp, lidx_start, lidx_stop);
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(lidx_stop,0));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(lidx_stop));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&time_temp, lidx_start, lidx_stop));
         printf("Total time for running through l_init=%d to l_max=%d takes %.4e s.\n",l_init, l_max, time_temp/1000.);
 
         counter ++;
@@ -152,9 +151,9 @@ void run_single_lidx(void)
     printf("Output 3D wave function...\n");
     write_array(false,&Lidx_global,file_r,file_i);
 
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&time_temp, start, stop);
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(stop,0));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&time_temp, start, stop));
     time_temp /= 1000.;
     int total_hr = (int)(time_temp/3600);
     int total_min = (int)((time_temp-3600*total_hr)/60);

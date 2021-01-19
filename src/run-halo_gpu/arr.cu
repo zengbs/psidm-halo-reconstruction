@@ -3,6 +3,7 @@
 #include<string.h>
 #include<math.h>
 #include<cuda_runtime.h>
+#include"cuapi.h"
 #include"macros.h"
 #include"main.h"
 #include"arr.h"
@@ -55,7 +56,7 @@ __device__ void cal_dis_z_O(int k, int nz, int octant, float dz, float zcen, flo
 
 __device__ void cal_dis_r(float *x, float *y, float *z, float *r)
 {
-    *r = sqrt((*x) * (*x) + (*y) * (*y) + (*z) * (*z));
+    *r = sqrtf((*x) * (*x) + (*y) * (*y) + (*z) * (*z));
 }
 
 void read_array(bool restart, int restart_id, char *filename_r, char *filename_i)
@@ -180,15 +181,15 @@ void array_fin()
 void array_add_ylm(int l_max,int l_init,bool firstadd)
 {
     bool timing_flag;
+    bool cuda_error_flag;
     cudaEvent_t start, stop;
-    cudaError_t err;
     float total_execute, total_cal_and_expand;
     float *array_r_device, *array_i_device;
     float *array_r_l, *array_i_l;
 
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&start));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventCreate(&stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(start));
 #ifdef OCTANT_DECOMPOSE
     printf( "Working on Octant [%d/8] -- Lidx [%3d/%3d] ...\n", octant_global, Lidx_global, lnod-1);
 #else
@@ -199,8 +200,8 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
     if (timing_flag)
         total_cal_and_expand = 0.;
 
-    err = cudaMalloc((void **)&array_r_device, N_site*sizeof(float));
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMalloc((void **)&array_r_device, N_site*sizeof(float)));
+    if (!cuda_error_flag)
     {
         printf("Memory allocating array_r_device failed!\n");
 	exit(1);
@@ -209,8 +210,8 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
     else
         printf("Memory allocating array_r_device succeed!\n");
 #endif
-    cudaMalloc((void **)&array_i_device, N_site*sizeof(float));
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMalloc((void **)&array_i_device, N_site*sizeof(float)));
+    if (!cuda_error_flag)
     {
         printf("Memory allocating array_i_device failed!\n");
 	exit(1);
@@ -220,8 +221,8 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
         printf("Memory allocating array_i_device succeed!\n");
     printf("CUDA malloc completed...\n");
 #endif
-    err = cudaMemset(array_r_device, 0, N_site*sizeof(float));
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMemset(array_r_device, 0, N_site*sizeof(float)));
+    if (!cuda_error_flag)
     {
         printf("Memory setting array_r failed!\n");
 	exit(1);
@@ -230,8 +231,8 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
     else
         printf("Memory setting array_r succeed!\n");
 #endif
-    err = cudaMemset(array_i_device, 0, N_site*sizeof(float));
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMemset(array_i_device, 0, N_site*sizeof(float)));
+    if (!cuda_error_flag)
     {
         printf("Memory setting array_i failed!\n");
 	exit(1);
@@ -245,24 +246,24 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
 
     do_expand_ylm(array_r_device, array_i_device, &total_cal_and_expand, l_max,l_init, timing_flag);
     
-    err = cudaMemcpy(array_r_l, array_r_device, N_site*sizeof(float), cudaMemcpyDeviceToHost);
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(array_r_l, array_r_device, N_site*sizeof(float), cudaMemcpyDeviceToHost));
+    if (!cuda_error_flag)
         printf("Copying array_r failed!\n");
 #ifdef DEBUG
     else
         printf("Copying array_r succeed!\n");
 #endif
         
-    err = cudaMemcpy(array_i_l, array_i_device, N_site*sizeof(float), cudaMemcpyDeviceToHost);
-    if (err!=cudaSuccess)
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(array_i_l, array_i_device, N_site*sizeof(float), cudaMemcpyDeviceToHost));
+    if (!cuda_error_flag)
         printf("Copying array_i failed!\n");
 #ifdef DEBUG
     else
         printf("Copying array_i succeed!\n");
 #endif
     
-    cudaFree(array_r_device);
-    cudaFree(array_i_device);
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(array_r_device));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(array_i_device));
 
     for (int site=0; site<N_site; site++)
     {
@@ -272,9 +273,9 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
     free(array_r_l);
     free(array_i_l);
 
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&total_execute, start, stop);
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(stop));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&total_execute, start, stop));
 
     printf("Total time for expanding-calculating ylm of l_init=%d to l_max=%d over all k takes %.4e s.\n", l_init, l_max, total_cal_and_expand);
     printf("Total time for adding contribution of l_init=%d to l_max=%d over all k takes %.4e s.\n", l_init, l_max, total_execute/1000.);

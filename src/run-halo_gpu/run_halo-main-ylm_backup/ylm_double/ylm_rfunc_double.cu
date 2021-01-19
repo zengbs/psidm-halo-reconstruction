@@ -9,10 +9,10 @@
 #include"arr.h"
 #include"cuapi.h"
 
-// for nan debugging
-#define nan_index_x 272 //0
-#define nan_index_y 220 //0
-#define nan_index_z 0 //1
+// for debugging
+#define nan_index_x 0
+#define nan_index_y 0
+#define nan_index_z 1
 
 
 int lnodidx = Lidx_global;
@@ -31,9 +31,9 @@ __device__ void cal_index_r(int rsiz, float r, float dr, int *index_r, float *fr
 }
 
 #ifdef OCTANT_DECOMPOSE
-__global__ void cal_and_expand_ylm_O(int rsiz, int nx, int ny, int nz, int octant, float dx, float dy, float dz, float xcen, float ycen, float zcen, float dr, float r_max, float *arr_r, float *arr_i, int *rfunc_num, float ***rfunc, float ***amplitude_r, float ***amplitude_i, int l_max,int l_init)
+__global__ void cal_and_expand_ylm_O(int rsiz, int nx, int ny, int nz, int octant, float dx, float dy, float dz, float xcen, float ycen, float zcen, float dr, float r_max, float *arr_r, float *arr_i, int *rfunc_num, double ***rfunc, float ***amplitude_r, float ***amplitude_i, int l_max,int l_init)
 #else
-__global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, float dy, float dz, float xcen, float ycen, float zcen, float dr, float r_max, float *arr_r, float* arr_i, int *rfunc_num, float ***rfunc, float ***amplitude_r , float ***amplitude_i, int l_max, int l_init)
+__global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, float dy, float dz, float xcen, float ycen, float zcen, float dr, float r_max, float *arr_r, float* arr_i, int *rfunc_num, double ***rfunc, float ***amplitude_r , float ***amplitude_i, int l_max, int l_init)
 #endif
 {
 //if (blockIdx.x==0&&blockIdx.y==0&&blockIdx.z==0)
@@ -58,25 +58,21 @@ __global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, f
 #endif
         cal_dis_r(&x, &y, &z, &r);        
 //#ifdef DEBUG
-        if (idx_x==nan_index_x&&idx_y==nan_index_y&&idx_z==nan_index_z)
 //        if (idx_x==(int)(nx/2)&&idx_y==(int)(ny/2)&&idx_z==(int)(nz/2))
-        {
+//        {
 //            printf("Kernel executing...\n");
 //            printf("Calculating distance r completed.\n");
 //            printf("x = %.4e , y = %.4e , z= %.4e , r = %.4e , r_max = %.4e .\n", x, y, z, r, r_max);
-              printf("index_x = %d , index_y = %d, index_z = %d ; x_cen = %.6e , y_cen = %.6e z_cen = %.6e ; r = %.8e, r_max = %.8e .\n", idx_x, idx_y, idx_z, xcen, ycen, zcen, r, r_max);
-        }
+//        }
 //#endif
         if (r<r_max)
         {
             int n, l, m, ll;
             int index_r, index_site;
             float frac_r, rfunc_interp;
-            float fact_1, fact_2 = 0., oldfact = 0.;  // for ylm computation
-            float pmm_new, pmm_old, phr_new, phr_old, phi_new, phi_old;
-            float array_pos[2];
-            double pml, pml_lm1, temp;
-            double ylmr[2];
+            float fact_1, fact_2 = 0., oldfact = 0., temp;  // for ylm computation
+            float pmm_new, pmm_old, pml, pml_lm1, phr_new, phr_old, phi_new, phi_old;
+            float ylmr[2], array_pos[2];
 
             cal_index_r(rsiz, r, dr, &index_r, &frac_r);
             index_site = get_pos(idx_x, idx_y, idx_z, nx, ny);
@@ -176,28 +172,33 @@ __global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, f
                         ylmr[0] = pml * phr_new * sqrtf((float)2.); // ylmr[0] = ylm[l][m]
                         ylmr[1] = pml * phi_new * sqrtf((float)2.); // ylmr[1] = ylmr[l][-m+2*l+1]
                         // to avoid nan
-//                        if (ylmr[0]!=ylmr[0])
-//                            ylmr[0] = (float)(0.);
-//                        if (ylmr[1]!=ylmr[1])
-//                            ylmr[1] = (float)(0.);
+                        if (ylmr[0]!=ylmr[0])
+                            ylmr[0] = (float)(0.);
+                        if (ylmr[1]!=ylmr[1])
+                            ylmr[1] = (float)(0.);
                         //
                         ll = l-l_init;
                         if (ll>=0)
                         {
                             for (n=0; n<rfunc_num[ll]; n++)
                             {
-                                rfunc_interp = rfunc[ll][n][index_r-1]*((float)1.-frac_r) + rfunc[ll][n][index_r]*frac_r;
-                                array_pos[0] += (amplitude_r[ll][n][m]*(float)(ylmr[0]) + amplitude_r[ll][n][-m+2*l+1]*(float)(ylmr[1]))*rfunc_interp;
-                                array_pos[1] += (amplitude_i[ll][n][m]*(float)(ylmr[0]) + amplitude_i[ll][n][-m+2*l+1]*(float)(ylmr[1]))*rfunc_interp;
+                                if (ylmr[0]==(float)(0.)&&ylmr[1]==(float)(0.))
+                                    continue;
+                                else
+                                {
+                                    rfunc_interp = (float)(rfunc[ll][n][index_r-1])*((float)1.-frac_r) + (float)(rfunc[ll][n][index_r])*frac_r;
+                                    array_pos[0] += (amplitude_r[ll][n][m]*ylmr[0] + amplitude_r[ll][n][-m+2*l+1]*ylmr[1])*rfunc_interp;
+                                    array_pos[1] += (amplitude_i[ll][n][m]*ylmr[0] + amplitude_i[ll][n][-m+2*l+1]*ylmr[1])*rfunc_interp;
+                                }
 //#ifdef DEBUG
-//                                if (idx_x==nan_index_x && idx_y==nan_index_y && idx_z==nan_index_z)
-//                                {
-//                                    printf("ylm[%d][%d] = %.6e .\n", l, m, ylmr[0] );
-//                                    printf("ylm[%d][%d] = %.6e .\n", l, -m+2*l+1, ylmr[1] );
-//                                    printf("amplitude_r[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_r[ll][n][m]);
-//                                    printf("amplitude_i[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_i[ll][n][m]);
-//                                    printf("rfunc_interp = %.6e .\n", rfunc_interp);
-//                                }
+                                if (idx_x==nan_index_x && idx_y==nan_index_y && idx_z==nan_index_z)
+                                {
+                                    printf("ylm[%d][%d] = %.6e .\n", l, m, ylmr[0] );
+                                    printf("ylm[%d][%d] = %.6e .\n", l, -m+2*l+1, ylmr[1] );
+                                    printf("amplitude_r[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_r[ll][n][m]);
+                                    printf("amplitude_i[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_i[ll][n][m]);
+                                    printf("rfunc_interp = %.6e .\n", rfunc_interp);
+                                }
 //#endif
                             }
                         }
@@ -206,26 +207,31 @@ __global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, f
                     {
                         ylmr[0] = pml * phr_new;
                         // to avoid nan
-//                        if (ylmr[0]!=ylmr[0])
-//                            ylmr[0] = (float)(0.);
+                        if (ylmr[0]!=ylmr[0])
+                            ylmr[0] = (float)(0.);
                         //
                         ll = l-l_init;
                         if (ll>=0)
                         {
                             for (n=0; n<rfunc_num[ll]; n++)
                             {
-                                rfunc_interp = rfunc[ll][n][index_r-1]*((float)1.-frac_r) + rfunc[ll][n][index_r]*frac_r;
-                                array_pos[0] += (amplitude_r[ll][n][0]*(float)(ylmr[0]))*rfunc_interp;
-                                array_pos[1] += (amplitude_i[ll][n][0]*(float)(ylmr[0]))*rfunc_interp;
-//#ifdef DEBUG
-//                                if (idx_x==nan_index_x && idx_y==nan_index_y && idx_z==nan_index_z)
-//                                {
-//                                    printf("ylm[%d][%d] = %.6e .\n", l, 0, ylmr[0] );
-//                                    printf("amplitude_r[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_r[ll][n][0]);
-//                                    printf("amplitude_i[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_i[ll][n][0]);
-//                                    printf("rfunc_interp = %.6e .\n", rfunc_interp);
-//                                }
-//#endif
+                                if (ylmr[0]==(float)(0.))
+                                    continue;
+                                else
+                                {
+                                    rfunc_interp = (float)(rfunc[ll][n][index_r-1])*((float)1.-frac_r) + (float)(rfunc[ll][n][index_r])*frac_r;
+                                    array_pos[0] += (amplitude_r[ll][n][0]*ylmr[0])*rfunc_interp;
+                                    array_pos[1] += (amplitude_i[ll][n][0]*ylmr[0])*rfunc_interp;
+                                }
+//ifdef DEBUG
+                                if (idx_x==nan_index_x && idx_y==nan_index_y && idx_z==nan_index_z)
+                                {
+                                    printf("ylm[%d][%d] = %.6e .\n", l, 0, ylmr[0] );
+                                    printf("amplitude_r[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_r[ll][n][0]);
+                                    printf("amplitude_i[%d][%d][%d] = %.6e .\n", l, n ,m, amplitude_i[ll][n][0]);
+                                    printf("rfunc_interp = %.6e .\n", rfunc_interp);
+                                }
+//endif
                             }
                         }
                     }
@@ -237,12 +243,10 @@ __global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, f
             } // end of for loop m
             arr_r[index_site] = array_pos[0];
             arr_i[index_site] = array_pos[1];
-//#ifdef DEBUG
-//            if (idx_x==nan_index_x&&idx_y==nan_index_y&&idx_z==nan_index_z)
-//            {
-//                printf("arr_r[%d][%d][%d] = %.6e ; arr_i[%d][%d][%d] = %.6e\n", idx_x, idx_y, idx_z, arr_r[index_site], idx_x, idx_y, idx_z, arr_i[index_site]);
-//            }
-//#endif
+            if (idx_x==nan_index_x&&idx_y==nan_index_y&&idx_z==nan_index_z)
+            {
+                printf("arr_r[%d][%d][%d] = %.6e ; arr_i[%d][%d][%d] = %.6e\n", idx_x, idx_y, idx_z, arr_r[index_site], idx_x, idx_y, idx_z, arr_i[index_site]);
+            }
         }
     }
     __syncthreads();
@@ -427,9 +431,9 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
     int l, n;
     FILE *pf;
     char str[80];
-//    double *rv_buff, *rfunc_n_buff, **rfunc_l_buff;
-    float *rv_buff, *rfunc_n_buff, **rfunc_l_buff;
-    double *rv_local, *rfunc_local;
+    double *rv_buff, *rfunc_n_buff, **rfunc_l_buff;
+//    float *rv_buff, *rfunc_n_buff, **rfunc_l_buff;
+//    float *rv_local, *rfunc_local;
     bool cuda_error_flag;
     sprintf(str,"%s%d.bin",filename,lnodidx);
     pf = fopen(str, "rb");
@@ -452,7 +456,7 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
     else
         printf("Memory allocation for eigen value number succeed!\n");
 #endif
-    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rv, (*l_max+1-*l_init)*sizeof(float*)));//rv[l][n] is the eigen_ln
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rv, (*l_max+1-*l_init)*sizeof(double*)));//rv[l][n] is the eigen_ln
     if (!cuda_error_flag)
     {
         printf("Memory allocation for eigen values failed!\n");
@@ -462,7 +466,7 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
     else
         printf("Memory allocation for eigen values succeed!\n");
 #endif
-    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc, (*l_max+1-*l_init)*sizeof(float**)));//rc[l][n][r] is the eigenfunction_ln
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc, (*l_max+1-*l_init)*sizeof(double**)));//rc[l][n][r] is the eigenfunction_ln
     if (!cuda_error_flag)
     {
         printf("Memory allocation for eigen functions failed!\n");
@@ -477,9 +481,8 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
     for(l = *l_init;l <= *l_max;l++)
     {
         int ll = l-*l_init;
-        rv_local = (double*)malloc(rfunc_num[ll]*sizeof(double));
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rv_buff, rfunc_num[ll]*sizeof(float)));
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rv[ll], &rv_buff, sizeof(float*), cudaMemcpyHostToDevice));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rv_buff, rfunc_num[ll]*sizeof(double)));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rv[ll], &rv_buff, sizeof(double*), cudaMemcpyHostToDevice));
         if (!cuda_error_flag)
         {
             printf("Memory allocation for eigen values with l = %d failed!\n", l);
@@ -489,10 +492,10 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
         else
             printf("Memory allocation for eigen values with l = %d succeed!\n", l);
 #endif
-	fread(rv_local, rfunc_num[ll], sizeof(double), pf);
+	fread(rv[ll], rfunc_num[ll], sizeof(double), pf);
 
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc_l_buff, rfunc_num[ll]*sizeof(float*)));
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rfunc[ll], &rfunc_l_buff, sizeof(float**), cudaMemcpyHostToDevice));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc_l_buff, rfunc_num[ll]*sizeof(double*)));
+        cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rfunc[ll], &rfunc_l_buff, sizeof(double**), cudaMemcpyHostToDevice));
         if (!cuda_error_flag)
         {
             printf("Memory allocation for eigen functions with l = %d failed!\n", l);
@@ -505,11 +508,8 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
 
 	for(n = 0;n < rfunc_num[ll];n++)
 	{
-            rv[ll][n] = (float)(rv_local[n]);
-            rfunc_local = (double*)malloc(rsiz*sizeof(double));
-
-            cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc_n_buff, rsiz*sizeof(float)));
-            cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rfunc[ll][n], &rfunc_n_buff, sizeof(float*), cudaMemcpyHostToDevice));
+            cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc_n_buff, rsiz*sizeof(double)));
+            cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rfunc[ll][n], &rfunc_n_buff, sizeof(double*), cudaMemcpyHostToDevice));
             if (!cuda_error_flag)
             {
                 printf("Memory allocation for eigen functions with l = %d , n = %d failed!\n", l, n);
@@ -519,13 +519,8 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
             else
                 printf("Memory allocation for eigen functions with l = %d , n = %d succeed!\n", l, n);
 #endif
-	    fread(rfunc_local, rsiz, sizeof(double), pf);
-            for (int r=0; r<rsiz; r++)
-                rfunc[ll][n][r] = (float)(rfunc_local[r]);
-            free(rfunc_local);
-            
+	    fread(rfunc[ll][n], rsiz, sizeof(double), pf);
 	}
-        free(rv_local);
         if (!cuda_error_flag)
         {
             printf("Memory allocation for eigen functions with l = %d failed!\n", l);

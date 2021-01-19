@@ -11,8 +11,6 @@ extern cmpx ***amplitude_host;
 extern int *rfunc_num;
 extern float **rv;
 extern float ***rfunc;
-extern float **rv_host;
-extern float ***rfunc_host;
 //extern int *rfunc_num_host;
 //extern double **rv_host;
 //extern double ***rfunc_host;

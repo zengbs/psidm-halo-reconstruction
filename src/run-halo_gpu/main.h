@@ -97,7 +97,6 @@ extern char   final_pot[strsiz];
 
 extern int size;
 extern int rank;
-//extern cmpx ***amplitude;
 
 extern double *dis_hist;
 extern double *dos_hist;

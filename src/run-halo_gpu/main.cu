@@ -38,8 +38,6 @@ extern double electron_charge;
 extern double speed_of_light;
 extern double hbar_mks;
 
-// adding iter_test
-int iter_test = 0;
 // adding data dumping and restarting 2021.01.04
 int dump_flag = -1;
 int dump_interval = 0;
@@ -152,11 +150,19 @@ char   final_pot[strsiz];
 //cmpxf  *array     = NULL;
 //cmpxf  *array_cnt = NULL;
 int    *rfunc_num = NULL;
-double **rv       = NULL;
-double ***rfunc   = NULL;
-float *array_r_host;
-float *array_i_host;
-cmpx ***amplitude;
+float **rv       = NULL;
+float ***rfunc   = NULL;
+//double **rv       = NULL;
+//double ***rfunc   = NULL;
+float *array_r_host, *array_i_host;
+float ***amplitude_r, ***amplitude_i;
+
+cmpx ***amplitude_host;
+float **rv_host;
+float ***rfunc_host;
+//int *rfunc_num_host;
+//double **rv_host;
+//double ***rfunc_host;
 
 int ubound_l   = -1;
 int *ubound_n  = NULL;
@@ -335,9 +341,6 @@ void read_para(const char *parafile)
 	set_para("RESTART_FLAG"  , (char *)(& restart_flag  ), paraname, paravalue, 'i');
 	set_para("RESTART_ID"  , (char *)(& restart_id  ), paraname, paravalue, 'i');
 //       
-// adding iter_test to run the code several times 2021.01.07
-	set_para("ITER_TEST"  , (char *)(& iter_test  ), paraname, paravalue, 'i');
-//
 // adding GPU parameters 2021.01.09
 	set_para("THREADS_PER_BLOCK_X"  , (char *)(& tpB_x  ), paraname, paravalue, 'i');
 	set_para("THREADS_PER_BLOCK_Y"  , (char *)(& tpB_y  ), paraname, paravalue, 'i');
@@ -447,7 +450,6 @@ void read_para(const char *parafile)
     printf("DUMP_INTERVAL = %d\n", dump_interval);
     printf("RESTART_FLAG = %d\n", restart_flag);
     printf("RESTART_ID = %d\n", restart_id);
-    printf("ITER_TEST = %d\n", iter_test);
     printf("THREADS_PER_BLOCK_X = %d\n", tpB_x);
     printf("THREADS_PER_BLOCK_Y = %d\n", tpB_y);
     printf("THREADS_PER_BLOCK_Z = %d\n", tpB_z);
@@ -494,7 +496,6 @@ void read_para(const char *parafile)
     fprintf(parameter_log, "DUMP_INTERVAL = %d\n", dump_interval);
     fprintf(parameter_log, "RESTART_FLAG = %d\n", restart_flag);
     fprintf(parameter_log, "RESTART_ID = %d\n", restart_id);
-    fprintf(parameter_log, "ITER_TEST = %d\n", iter_test);
     fprintf(parameter_log, "THREADS_PER_BLOCK_X = %d\n", tpB_x);
     fprintf(parameter_log, "THREADS_PER_BLOCK_Y = %d\n", tpB_y);
     fprintf(parameter_log, "THREADS_PER_BLOCK_Z = %d\n", tpB_z);
