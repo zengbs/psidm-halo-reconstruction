@@ -58,14 +58,14 @@ __global__ void cal_and_expand_ylm(int rsiz, int nx, int ny, int nz, float dx, f
 #endif
         cal_dis_r(&x, &y, &z, &r);        
 //#ifdef DEBUG
-        if (idx_x==nan_index_x&&idx_y==nan_index_y&&idx_z==nan_index_z)
+//        if (idx_x==nan_index_x&&idx_y==nan_index_y&&idx_z==nan_index_z)
 //        if (idx_x==(int)(nx/2)&&idx_y==(int)(ny/2)&&idx_z==(int)(nz/2))
-        {
+//        {
 //            printf("Kernel executing...\n");
 //            printf("Calculating distance r completed.\n");
 //            printf("x = %.4e , y = %.4e , z= %.4e , r = %.4e , r_max = %.4e .\n", x, y, z, r, r_max);
-              printf("index_x = %d , index_y = %d, index_z = %d ; x_cen = %.6e , y_cen = %.6e z_cen = %.6e ; r = %.8e, r_max = %.8e .\n", idx_x, idx_y, idx_z, xcen, ycen, zcen, r, r_max);
-        }
+//              printf("index_x = %d , index_y = %d, index_z = %d ; x_cen = %.6e , y_cen = %.6e z_cen = %.6e ; r = %.8e, r_max = %.8e .\n", idx_x, idx_y, idx_z, xcen, ycen, zcen, r, r_max);
+//        }
 //#endif
         if (r<r_max)
         {
@@ -363,8 +363,11 @@ void ylm_fin(int l_init,int l_max)
     {
 	int ll=l-l_init;
         free(amplitude_host[ll][0]);
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(amplitude_r[ll][0]));
-        cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(amplitude_i[ll][0]));
+        for (int n=0; n<rfunc_num[ll]; n++)
+        {
+            cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(amplitude_r[ll][n]));
+            cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(amplitude_i[ll][n]));
+        }
 
         free(amplitude_host[ll]);
         cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(amplitude_r[ll]));
@@ -410,7 +413,7 @@ void free_egn(int l_max,int l_init)
 //			printf("rank=%d rfunc_num[%d]=%d\n",rank,l-l_init,rfunc_num[l-l_init]);//debug
         for(int n=0;n<rfunc_num[l-l_init];n++)
         {
-            cudaFree(rfunc[l-l_init][n]);
+            cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(rfunc[l-l_init][n]));
         }
         cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(rv[l-l_init]));
         cuda_error_flag = CUDA_CHECK_ERROR(cudaFree(rfunc[l-l_init]));
@@ -422,7 +425,7 @@ void free_egn(int l_max,int l_init)
 }
 
 //void load_eigenstates(int *l_init,int *l_max, int *ln_total_count, char *filename,int lnodidx)
-void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
+void load_eigenstates(int *l_init,int *l_max, int *eigen_num, char *filename,int lnodidx)
 {
     int l, n;
     FILE *pf;
@@ -442,6 +445,7 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
         return;
     }
 
+    *eigen_num = 0;
     cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rfunc_num, (*l_max+1-*l_init)*sizeof(int)));//rfunc_num[l] is the number of eigenvalues
     if (!cuda_error_flag)
     {
@@ -477,6 +481,7 @@ void load_eigenstates(int *l_init,int *l_max, char *filename,int lnodidx)
     for(l = *l_init;l <= *l_max;l++)
     {
         int ll = l-*l_init;
+        *eigen_num += rfunc_num[ll];
         rv_local = (double*)malloc(rfunc_num[ll]*sizeof(double));
         cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocManaged((void **)&rv_buff, rfunc_num[ll]*sizeof(float)));
         cuda_error_flag = CUDA_CHECK_ERROR(cudaMemcpy(&rv[ll], &rv_buff, sizeof(float*), cudaMemcpyHostToDevice));

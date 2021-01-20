@@ -241,8 +241,10 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
     else
         printf("Memory setting array_i succeed!\n");
 #endif
-    array_r_l = (float*)malloc(N_site*sizeof(float));
-    array_i_l = (float*)malloc(N_site*sizeof(float));
+//    array_r_l = (float*)malloc(N_site*sizeof(float));
+//    array_i_l = (float*)malloc(N_site*sizeof(float));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocHost((void**)&array_r_l, N_site*sizeof(float)));
+    cuda_error_flag = CUDA_CHECK_ERROR(cudaMallocHost((void**)&array_i_l, N_site*sizeof(float)));
 
     do_expand_ylm(array_r_device, array_i_device, &total_cal_and_expand, l_max,l_init, timing_flag);
     
@@ -270,8 +272,10 @@ void array_add_ylm(int l_max,int l_init,bool firstadd)
         array_r_host[site] += array_r_l[site];
         array_i_host[site] += array_i_l[site];
     }
-    free(array_r_l);
-    free(array_i_l);
+//    free(array_r_l);
+//    free(array_i_l);
+    cuda_error_flag = cudaFreeHost(array_r_l);
+    cuda_error_flag = cudaFreeHost(array_i_l);
 
     cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(stop));
     cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(stop));

@@ -15,18 +15,19 @@
 #include"arr.h"
 #include"ylm.h"
 #include"cuapi.h"
+#include"run_halo.h"
 #define RESTART_FILENAME_R "RESTART_R"
 #define RESTART_FILENAME_I "RESTART_I"
 
 char buff_r[128], buff_i[128];
-void run_single_lidx(void);
+void run_halo(void);
 
 void run(void)
 {
-    run_single_lidx();
+    run_halo();
 }
 
-void run_single_lidx(void)
+void run_halo(void)
 {
     float time_temp;
     
@@ -88,10 +89,11 @@ void run_single_lidx(void)
         cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(eigen_copy_start,0));
         
         /*** load eigenstates and broadcast to every nodes***/
-        load_eigenstates(&l_init,&l_max,"egn",Lidx_global);
+        load_eigenstates(&l_init,&l_max,&eigen_num,"egn",Lidx_global);
 #ifdef DEBUG
         printf("Eigen states loading completed!\n");
 #endif
+        printf("Total number of qunatum number n is %d .\n", eigen_num);
         cuda_error_flag = CUDA_CHECK_ERROR(cudaEventRecord(eigen_copy_stop,0));
         cuda_error_flag = CUDA_CHECK_ERROR(cudaEventSynchronize(eigen_copy_stop));
         cuda_error_flag = CUDA_CHECK_ERROR(cudaEventElapsedTime(&time_temp, eigen_copy_start, eigen_copy_stop));

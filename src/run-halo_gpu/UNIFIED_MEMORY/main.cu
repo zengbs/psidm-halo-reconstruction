@@ -23,6 +23,7 @@ using namespace std;
 
 int Lidx_global=-1;
 int octant_global=-1;
+int eigen_num;
 
 double mass      = 0.;
 double newton_g  = 0.;
@@ -158,8 +159,6 @@ float *array_r_host, *array_i_host;
 float ***amplitude_r, ***amplitude_i;
 
 cmpx ***amplitude_host;
-float **rv_host;
-float ***rfunc_host;
 //int *rfunc_num_host;
 //double **rv_host;
 //double ***rfunc_host;
